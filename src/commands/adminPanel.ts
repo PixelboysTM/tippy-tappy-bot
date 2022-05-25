@@ -99,7 +99,6 @@ export const AdminPanel: Command = {
                                 emoji: client.emojis.cache.find(emoji => emoji.name === "flag_" + country.flagIdentifier)
                             });
                         });
-                        console.log(options);
 
 
                         interaction?.reply({
@@ -186,7 +185,6 @@ export const AdminPanel: Command = {
                                 description: tournament.shortName,
                             });
                         });
-                        console.log(data);
 
                         interaction?.reply({
                             ephemeral: true,
@@ -204,6 +202,123 @@ export const AdminPanel: Command = {
                             ]
                         });
                     })
+            }
+            if (eventName === "buttonCommandAdminPanelDeleteTournament") {
+                let tournaments = ExecuteSQL("SELECT * FROM Tournament").then(
+                    data => {
+                        let options: MessageSelectOptionData[] = [];
+                        data.forEach(tournament => {
+                            options.push({
+                                label: tournament.name,
+                                value: tournament.id.toString(),
+                                description: tournament.shortName,
+                            });
+                        });
+
+                        interaction?.reply({
+                            ephemeral: true,
+                            content: "Select a tournament to delete",
+                            components: [
+                                {
+                                    type: "ACTION_ROW",
+                                    components: [
+                                        new MessageSelectMenu()
+                                            .setCustomId("adminPanelDeleteTournamentSelectTournamentMenu")
+                                            .setPlaceholder(data[0].name)
+                                            .addOptions(options)
+                                    ]
+                                },
+                            ]
+                        });
+                    })
+            }
+            if (eventName === "adminPanelDeleteTournamentConfirmButton") {
+                let id = parseInt(interaction?.message.content.split("__")[1] ?? "");
+                ExecuteSQL("DELETE FROM Tournament WHERE id = " + id + ";").then(() => interaction?.update({ content: "Delete Successful", components: [] }));
+            }
+            if (eventName === "adminPanelDeleteTournamentCancelButton") {
+                interaction?.update({ content: "Delete Canceled", components: [] });
+            }
+
+            //Game Buttons
+            if (eventName === "buttonCommandAdminPanelAddGame") {
+                interaction?.showModal({
+                    customId: "adminPanelAddGameModal",
+                    title: "Create New Game",
+                    components: [
+                        new MessageActionRow<ModalActionRowComponent>().addComponents(
+                            new TextInputComponent()
+                                .setCustomId("adminPanelAddGameModalNameInput")
+                                .setLabel("Game Name")
+                                .setStyle("SHORT")
+                                .setRequired(true)
+                        ),
+                        new MessageActionRow<ModalActionRowComponent>().addComponents(
+                            new TextInputComponent()
+                                .setCustomId("adminPanelAddGameModalDateInput")
+                                .setLabel("Game Datetime")
+                                .setStyle("SHORT")
+                                .setPlaceholder("YYYY-MM-DD HH:MM")
+                                .setRequired(true)
+                                .setMinLength(16)
+                                .setMaxLength(16)
+                        ),
+                    ]
+                });
+            }
+            if (eventName === "adminPanelAddGameCancelProcessButton") {
+                interaction?.update({ content: "Add Game Canceled", components: [], embeds: [] });
+            }
+            if (eventName === "adminPanelAddGameConfirmProcessButton") {
+                let name = interaction?.message?.embeds?.[0].fields?.[0].value ?? "";
+                let datetime = interaction?.message?.embeds?.[0].fields?.[1].value ?? "";
+                let tournament = parseInt(interaction?.message?.embeds?.[0].fields?.[2].value.split("__")[1] ?? "");
+                let player1 = parseInt(interaction?.message?.embeds?.[0].fields?.[3].value.split("__")[1] ?? "");
+                let player2 = parseInt(interaction?.message?.embeds?.[0].fields?.[4].value.split("__")[1] ?? "");
+                let from1 = parseInt(interaction?.message?.embeds?.[0].fields?.[5].value.split("__")[1] ?? "");
+                let from2 = parseInt(interaction?.message?.embeds?.[0].fields?.[6].value.split("__")[1] ?? "");
+                ExecuteSQL(`INSERT INTO GAME (name, date, tournament, player1, player2, from1, from2) VALUES ("${name}", "${datetime}", ${tournament}, ${player1}, ${player2}, ${from1 == -1 ? "NULL" : from1.toString()}, ${from2 == -1 ? "NULL" : from2.toString()});`).then(() => interaction?.update({ content: "Added Game Successful", components: [], embeds: [] }));
+            }
+            if (eventName === "buttonCommandAdminPanelModifyGame") {
+                interaction?.reply({
+                    ephemeral: true,
+                    content: "Modifying Games not yet implemented",
+                });
+            }
+            if (eventName === "buttonCommandAdminPanelDeleteGame") {
+                let tournaments = ExecuteSQL("SELECT * FROM Game").then(
+                    data => {
+                        let options: MessageSelectOptionData[] = [];
+                        data.forEach(game => {
+                            options.push({
+                                label: game.name,
+                                value: game.id.toString(),
+                            });
+                        });
+
+                        interaction?.reply({
+                            ephemeral: true,
+                            content: "Select a Game to delete",
+                            components: [
+                                {
+                                    type: "ACTION_ROW",
+                                    components: [
+                                        new MessageSelectMenu()
+                                            .setCustomId("adminPanelDeleteGameSelectGameMenu")
+                                            .setPlaceholder("Select Game")
+                                            .addOptions(options)
+                                    ]
+                                },
+                            ]
+                        });
+                    })
+            }
+            if (eventName === "adminPanelDeleteGameConfirmProcessButton") {
+                let id = parseInt(interaction?.message.content.split("__")[1] ?? "");
+                ExecuteSQL("DELETE FROM Game WHERE id = " + id + ";").then(() => interaction?.update({ content: "Delete Successful", components: [] }));
+            }
+            if (eventName === "adminPanelDeleteGameCancelProcessButton") {
+                interaction?.update({ content: "Delete Canceled", components: [] });
             }
         });
 
@@ -320,6 +435,62 @@ export const AdminPanel: Command = {
                             .setFooter({ text: "Tippy Tappy Bot", iconURL: botUrl })
                     ]
                 });
+            }
+
+            //Game Modals
+            if (eventName === "adminPanelAddGameModal") {
+                let name = interaction?.fields.getTextInputValue("adminPanelAddGameModalNameInput") ?? "";
+                let datetime = interaction?.fields.getTextInputValue("adminPanelAddGameModalDateInput") ?? "";
+                ExecuteSQL("SELECT * FROM Tournament").then(
+                    data => {
+                        let options: MessageSelectOptionData[] = [];
+                        data.forEach(tournament => {
+                            options.push({
+                                label: tournament.name,
+                                value: tournament.id.toString(),
+                                description: tournament.shortName,
+                            });
+                        });
+
+                        interaction?.reply({
+                            ephemeral: true,
+                            content: "Select the tournament the game belongs to:",
+                            embeds: [
+                                new MessageEmbed()
+                                    .setColor("#ff7e08")
+                                    .setTitle("Create New Game")
+                                    .addFields(
+                                        { name: "Name", value: name, inline: false },
+                                        { name: "Datetime", value: datetime, inline: true },
+                                    )
+                                    .setImage(client.user?.avatarURL() ?? "")
+                                    .setTimestamp()
+                                    .setFooter({ text: "Game blueprint", iconURL: (client.user?.avatarURL() ?? "") })
+                            ],
+                            components: [
+                                {
+                                    type: "ACTION_ROW",
+                                    components: [
+                                        new MessageSelectMenu()
+                                            .setCustomId("adminPanelAddGameSelectTournamentMenu")
+                                            .setPlaceholder("Select a tournament")
+                                            .addOptions(options)
+                                    ]
+                                },
+                                {
+                                    type: "ACTION_ROW",
+                                    components: [
+                                        new MessageButton()
+                                            .setCustomId("adminPanelAddGameCancelProcessButton")
+                                            .setLabel("Cancel")
+                                            .setStyle("SECONDARY")
+                                            .setEmoji(":x:")
+                                    ]
+                                }
+                            ]
+                        })
+                    }
+                );
             }
         });
 
@@ -468,10 +639,385 @@ export const AdminPanel: Command = {
                         );
                     });
             }
-        }
-        );
+            if (eventName === "adminPanelDeleteTournamentSelectTournamentMenu") {
+                let tournamentId = parseInt(interaction?.values[0] ?? "0");
+                ExecuteSQL(`SELECT * FROM Tournament WHERE id = ${tournamentId}`).then(
+                    (tournament) => {
+                        interaction?.update(
+                            {
+                                content: "Are you sure you want to delete the Tournament: " + tournament[0].name + "? __" + tournament[0].id,
+                                components: [
+                                    {
+                                        type: "ACTION_ROW",
+                                        components: [
+                                            new MessageButton()
+                                                .setCustomId("adminPanelDeleteTournamentConfirmButton")
+                                                .setLabel("Yes")
+                                                .setStyle("DANGER"),
+                                            new MessageButton()
+                                                .setCustomId("adminPanelDeleteTournamentCancelButton")
+                                                .setLabel("No")
+                                                .setStyle("SECONDARY")
+                                        ]
+                                    }
+                                ]
+                            }
+                        );
+                    });
+            }
 
-        await interaction.followUp({
+            //Game Select Menus
+            if (eventName === "adminPanelAddGameSelectTournamentMenu") {
+                let tournamentId = parseInt(interaction?.values[0] ?? "0");
+                ExecuteSQL(`SELECT * FROM Tournament WHERE id = ${tournamentId}`).then(
+                    (tournament) => {
+                        ExecuteSQL("SELECT * FROM Country").then(
+                            data => {
+                                let options: MessageSelectOptionData[] = [];
+                                data.forEach(country => {
+                                    options.push({
+                                        label: country.Name,
+                                        value: country.id.toString(),
+                                        description: country.shortName,
+                                    });
+                                });
+
+                                let name = interaction?.message?.embeds?.[0].fields?.[0].value ?? "";
+                                let datetime = interaction?.message?.embeds?.[0].fields?.[1].value ?? "";
+
+                                interaction?.update({
+                                    content: "Select the first Country competing in the game:",
+                                    embeds: [
+                                        new MessageEmbed()
+                                            .setColor("#ff7e08")
+                                            .setTitle("Create New Game")
+                                            .addFields(
+                                                { name: "Name", value: name, inline: false },
+                                                { name: "Date", value: datetime, inline: false },
+                                                { name: "Tournament", value: tournament[0].name + " __" + tournament[0].id, inline: false },
+                                            )
+                                            .setImage(client.user?.avatarURL() ?? "")
+                                            .setTimestamp()
+                                            .setFooter({ text: "Game blueprint", iconURL: (client.user?.avatarURL() ?? "") })
+                                    ],
+                                    components: [
+                                        {
+                                            type: "ACTION_ROW",
+                                            components: [
+                                                new MessageSelectMenu()
+                                                    .setCustomId("adminPanelAddGameSelectPlayer1Menu")
+                                                    .setPlaceholder("Select Player 1")
+                                                    .addOptions(options)
+                                            ]
+                                        },
+                                        {
+                                            type: "ACTION_ROW",
+                                            components: [
+                                                new MessageButton()
+                                                    .setCustomId("adminPanelAddGameCancelProcessButton")
+                                                    .setLabel("Cancel")
+                                                    .setStyle("SECONDARY")
+                                                    .setEmoji(":x:")
+                                            ]
+                                        }
+                                    ]
+                                })
+                            }
+                        );
+                    }
+                );
+            }
+            if (eventName === "adminPanelAddGameSelectPlayer1Menu") {
+                let player1Id = parseInt(interaction?.values[0] ?? "0");
+                ExecuteSQL(`SELECT * FROM Country WHERE id = ${player1Id}`).then(
+                    (player1) => {
+                        ExecuteSQL("SELECT * FROM Country").then(
+                            data => {
+                                let options: MessageSelectOptionData[] = [];
+                                data.forEach(country => {
+                                    options.push({
+                                        label: country.Name,
+                                        value: country.id.toString(),
+                                        description: country.shortName,
+                                    });
+                                });
+
+                                let name = interaction?.message?.embeds?.[0].fields?.[0].value ?? "";
+                                let datetime = interaction?.message?.embeds?.[0].fields?.[1].value ?? "";
+                                let tournament = interaction?.message?.embeds?.[0].fields?.[2].value ?? "";
+
+                                interaction?.update({
+                                    content: "Select the second Country competing in the game:",
+                                    embeds: [
+                                        new MessageEmbed()
+                                            .setColor("#ff7e08")
+                                            .setTitle("Create New Game")
+                                            .addFields(
+                                                { name: "Name", value: name, inline: false },
+                                                { name: "Date", value: datetime, inline: false },
+                                                { name: "Tournament", value: tournament, inline: false },
+                                                { name: "Player 1", value: player1[0].Name + " __" + player1[0].id, inline: false },
+                                            )
+                                            .setImage(client.user?.avatarURL() ?? "")
+                                            .setTimestamp()
+                                            .setFooter({ text: "Game blueprint", iconURL: (client.user?.avatarURL() ?? "") })
+                                    ],
+                                    components: [
+                                        {
+                                            type: "ACTION_ROW",
+                                            components: [
+                                                new MessageSelectMenu()
+                                                    .setCustomId("adminPanelAddGameSelectPlayer2Menu")
+                                                    .setPlaceholder("Select Player 2")
+                                                    .addOptions(options)
+                                            ]
+                                        },
+                                        {
+                                            type: "ACTION_ROW",
+                                            components: [
+                                                new MessageButton()
+                                                    .setCustomId("adminPanelAddGameCancelProcessButton")
+                                                    .setLabel("Cancel")
+                                                    .setStyle("SECONDARY")
+                                                    .setEmoji(":x:")
+                                            ]
+                                        }
+                                    ]
+                                })
+                            }
+                        );
+                    }
+                );
+            }
+            if (eventName === "adminPanelAddGameSelectPlayer2Menu") {
+                let player2Id = parseInt(interaction?.values[0] ?? "0");
+                ExecuteSQL(`SELECT * FROM Country WHERE id = ${player2Id}`).then(
+                    (player2) => {
+                        ExecuteSQL("SELECT * FROM Game").then(
+                            data => {
+                                let options: MessageSelectOptionData[] = [];
+                                options.push({
+                                    label: "No Game",
+                                    value: "-1",
+                                    description: "No prior Game to Country1",
+                                });
+                                data.forEach(game => {
+                                    options.push({
+                                        label: game.name,
+                                        value: game.id.toString(),
+                                        description: game.date,
+                                    });
+                                });
+
+                                let name = interaction?.message?.embeds?.[0].fields?.[0].value ?? "";
+                                let datetime = interaction?.message?.embeds?.[0].fields?.[1].value ?? "";
+                                let tournament = interaction?.message?.embeds?.[0].fields?.[2].value ?? "";
+                                let player1 = interaction?.message?.embeds?.[0].fields?.[3].value ?? "";
+
+                                interaction?.update({
+                                    content: "Select the optional Game that resulted in this first Country:",
+                                    embeds: [
+                                        new MessageEmbed()
+                                            .setColor("#ff7e08")
+                                            .setTitle("Create New Game")
+                                            .addFields(
+                                                { name: "Name", value: name, inline: false },
+                                                { name: "Date", value: datetime, inline: false },
+                                                { name: "Tournament", value: tournament, inline: false },
+                                                { name: "Player 1", value: player1, inline: false },
+                                                { name: "Player 2", value: player2[0].Name + " __" + player2[0].id, inline: false },
+                                            )
+                                            .setImage(client.user?.avatarURL() ?? "")
+                                            .setTimestamp()
+                                            .setFooter({ text: "Game blueprint", iconURL: (client.user?.avatarURL() ?? "") })
+                                    ],
+                                    components: [
+                                        {
+                                            type: "ACTION_ROW",
+                                            components: [
+                                                new MessageSelectMenu()
+                                                    .setCustomId("adminPanelAddGameSelectFrom1Menu")
+                                                    .setPlaceholder("Select From 1")
+                                                    .addOptions(options)
+                                            ]
+                                        },
+                                        {
+                                            type: "ACTION_ROW",
+                                            components: [
+                                                new MessageButton()
+
+                                                    .setCustomId("adminPanelAddGameCancelProcessButton")
+                                                    .setLabel("Cancel")
+                                                    .setStyle("SECONDARY")
+                                                    .setEmoji(":x:")
+                                            ]
+
+                                        }
+                                    ]
+                                }
+                                );
+                            }
+                        );
+                    }
+                );
+            }
+            if (eventName === "adminPanelAddGameSelectFrom1Menu") {
+                let from1Id = parseInt(interaction?.values[0] ?? "0");
+                ExecuteSQL(`SELECT * FROM Game WHERE id = ${from1Id}`).then(
+                    (from1) => {
+                        ExecuteSQL("SELECT * FROM Game").then(
+                            data => {
+                                let options: MessageSelectOptionData[] = [];
+                                options.push({
+                                    label: "No Game",
+                                    value: "-1",
+                                    description: "No prior Game to Country2",
+                                });
+                                data.forEach(game => {
+                                    options.push({
+                                        label: game.name,
+                                        value: game.id.toString(),
+                                        description: game.date,
+                                    });
+                                });
+
+                                let name = interaction?.message?.embeds?.[0].fields?.[0].value ?? "";
+                                let datetime = interaction?.message?.embeds?.[0].fields?.[1].value ?? "";
+                                let tournament = interaction?.message?.embeds?.[0].fields?.[2].value ?? "";
+                                let player1 = interaction?.message?.embeds?.[0].fields?.[3].value ?? "";
+                                let player2 = interaction?.message?.embeds?.[0].fields?.[4].value ?? "";
+                                let from1_data = from1.length == 0 ? "No prior Game __-1" : from1[0].name + " __" + from1[0].id;
+
+                                interaction?.update({
+                                    content: "Select the optional Game that resulted in this second Country:",
+                                    embeds: [
+                                        new MessageEmbed()
+                                            .setColor("#ff7e08")
+                                            .setTitle("Create New Game")
+                                            .addFields(
+                                                { name: "Name", value: name, inline: false },
+                                                { name: "Date", value: datetime, inline: false },
+                                                { name: "Tournament", value: tournament, inline: false },
+                                                { name: "Player 1", value: player1, inline: false },
+                                                { name: "Player 2", value: player2, inline: false },
+                                                { name: "From 1", value: from1_data, inline: false },
+                                            )
+                                            .setImage(client.user?.avatarURL() ?? "")
+                                            .setTimestamp()
+                                            .setFooter({ text: "Game blueprint", iconURL: (client.user?.avatarURL() ?? "") })
+                                    ],
+                                    components: [
+                                        {
+                                            type: "ACTION_ROW",
+                                            components: [
+                                                new MessageSelectMenu()
+                                                    .setCustomId("adminPanelAddGameSelectFrom2Menu")
+                                                    .setPlaceholder("Select From 2")
+                                                    .addOptions(options)
+                                            ]
+                                        },
+                                        {
+                                            type: "ACTION_ROW",
+                                            components: [
+                                                new MessageButton()
+                                                    .setCustomId("adminPanelAddGameCancelProcessButton")
+                                                    .setLabel("Cancel")
+                                                    .setStyle("SECONDARY")
+                                                    .setEmoji(":x:")
+                                            ]
+                                        }
+                                    ]
+                                });
+                            }
+                        );
+                    }
+                );
+            }
+            if (eventName === "adminPanelAddGameSelectFrom2Menu") {
+                let from2Id = parseInt(interaction?.values[0] ?? "0");
+                ExecuteSQL(`SELECT * FROM Game WHERE id = ${from2Id}`).then(
+                    (from2) => {
+                        let name = interaction?.message?.embeds?.[0].fields?.[0].value ?? "";
+                        let datetime = interaction?.message?.embeds?.[0].fields?.[1].value ?? "";
+                        let tournament = interaction?.message?.embeds?.[0].fields?.[2].value ?? "";
+                        let player1 = interaction?.message?.embeds?.[0].fields?.[3].value ?? "";
+                        let player2 = interaction?.message?.embeds?.[0].fields?.[4].value ?? "";
+                        let from1 = interaction?.message?.embeds?.[0].fields?.[5].value ?? "";
+                        let from2_data = from2.length == 0 ? "No prior Game __-1" : from2[0].name + " __" + from2[0].id;
+
+                        interaction?.update({
+                            content: "Confirm Values for new Game:",
+                            embeds: [
+                                new MessageEmbed()
+                                    .setColor("#ff7e08")
+                                    .setTitle("Create New Game")
+                                    .addFields(
+                                        { name: "Name", value: name, inline: false },
+                                        { name: "Date", value: datetime, inline: false },
+                                        { name: "Tournament", value: tournament, inline: false },
+                                        { name: "Player 1", value: player1, inline: false },
+                                        { name: "Player 2", value: player2, inline: false },
+                                        { name: "From 1", value: from1, inline: false },
+                                        { name: "From 2", value: from2_data, inline: false },
+                                    )
+                                    .setImage(client.user?.avatarURL() ?? "")
+                                    .setTimestamp()
+                                    .setFooter({ text: "Game blueprint", iconURL: (client.user?.avatarURL() ?? "") })
+                            ],
+                            components: [
+                                {
+                                    type: "ACTION_ROW",
+                                    components: [
+                                        new MessageButton()
+                                            .setCustomId("adminPanelAddGameConfirmProcessButton")
+                                            .setLabel("Confirm")
+                                            .setStyle("PRIMARY")
+                                    ]
+                                },
+                                {
+                                    type: "ACTION_ROW",
+                                    components: [
+                                        new MessageButton()
+
+                                            .setCustomId("adminPanelAddGameCancelProcessButton")
+                                            .setLabel("Cancel")
+                                            .setStyle("SECONDARY")
+                                            .setEmoji(":x:")
+                                    ]
+                                }
+                            ]
+                        });
+                    });
+            }
+            if (eventName === "adminPanelDeleteGameSelectGameMenu") {
+                let gameId = parseInt(interaction?.values[0] ?? "0");
+                ExecuteSQL(`SELECT * FROM Game WHERE id = ${gameId}`).then(
+                    (game) => {
+                        interaction?.update({
+                            content: "Are you sure you want to delete this Game: " + game[0].name + "? __" + game[0].id,
+                            components: [
+                                {
+                                    type: "ACTION_ROW",
+                                    components: [
+                                        new MessageButton()
+                                            .setCustomId("adminPanelDeleteGameConfirmProcessButton")
+                                            .setLabel("Confirm")
+                                            .setStyle("PRIMARY"),
+                                        new MessageButton()
+                                            .setCustomId("adminPanelDeleteGameCancelProcessButton")
+                                            .setLabel("Cancel")
+                                            .setStyle("SECONDARY")
+                                            .setEmoji(":x:")
+
+                                    ]
+                                }]
+
+                        });
+                    });
+            }
+        });
+
+        await interaction?.followUp({
             ephemeral: true,
             content: "Tippy Tappy admin panel",
             components: [
